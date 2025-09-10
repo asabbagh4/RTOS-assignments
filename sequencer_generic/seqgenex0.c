@@ -69,6 +69,11 @@ int rt_max_prio, rt_min_prio;
 struct sched_param rt_param[NUM_THREADS];
 threadParams_t threadParams[NUM_THREADS];
 
+unsigned long fibonacci(int n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
 
 
 void main(void)
@@ -138,7 +143,7 @@ void main(void)
     printf("Service threads will run on %d CPU cores\n", CPU_COUNT(&threadcpu));
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "RTMAIN: on cpu=%d @ sec=%lf, elapsed=%lf\n", sched_getcpu(), start_time, current_time);
+    //syslog(LOG_CRIT, "RTMAIN: on cpu=%d @ sec=%lf, elapsed=%lf\n", sched_getcpu(), start_time, current_time);
 
 
     // Create Service threads which will block awaiting release for:
@@ -220,7 +225,7 @@ void *Sequencer(void *threadp)
 
     current_time=getTimeMsec(); last_time=current_time-delta_t;
 
-    syslog(LOG_CRIT, "RTSEQ: start on cpu=%d @ sec=%lf after %lf with dt=%lf\n", sched_getcpu(), current_time, last_time, delta_t);
+    //syslog(LOG_CRIT, "RTSEQ: start on cpu=%d @ sec=%lf after %lf with dt=%lf\n", sched_getcpu(), current_time, last_time, delta_t);
 
     do
     {
@@ -260,7 +265,7 @@ void *Sequencer(void *threadp)
 
             if(rc == EINTR)
             { 
-                syslog(LOG_CRIT, "RTSEQ: EINTR @ sec=%lf\n", current_time);
+                //syslog(LOG_CRIT, "RTSEQ: EINTR @ sec=%lf\n", current_time);
                 delay_cnt++;
             }
             else if(rc < 0)
@@ -274,7 +279,7 @@ void *Sequencer(void *threadp)
         } while(rc == EINTR);
 
 
-        syslog(LOG_CRIT, "RTSEQ: cycle %08llu @ sec=%lf, last=%lf, dt=%lf, sdt=%lf\n", seqCnt, current_time, last_time, (current_time-last_time), scale_dt);
+        //syslog(LOG_CRIT, "RTSEQ: cycle %08llu @ sec=%lf, last=%lf, dt=%lf, sdt=%lf\n", seqCnt, current_time, last_time, (current_time-last_time), scale_dt);
 
         // Release each service at a sub-rate of the generic sequencer rate
 
@@ -305,9 +310,10 @@ void *Service_1(void *threadp)
     double current_time;
     unsigned long long S1Cnt=0;
     threadParams_t *threadParams = (threadParams_t *)threadp;
+    unsigned long fib_result;
 
     current_time=getTimeMsec();
-    //syslog(LOG_CRIT, "S1: start on cpu=%d @ sec=%lf\n", sched_getcpu(), current_time);
+    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS1)
     {
@@ -315,7 +321,8 @@ void *Service_1(void *threadp)
         S1Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "S1: release %llu @ sec=%lf\n", S1Cnt, current_time);
+        
+        fib_result = fibonacci(20);
     }
 
     pthread_exit((void *)0);
@@ -327,9 +334,10 @@ void *Service_2(void *threadp)
     double current_time;
     unsigned long long S2Cnt=0;
     threadParams_t *threadParams = (threadParams_t *)threadp;
+    unsigned long fib_result;
 
     current_time=getTimeMsec();
-    //syslog(LOG_CRIT, "S2: start on cpu=%d @ sec=%lf\n", sched_getcpu(), current_time);
+    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS2)
     {
@@ -337,7 +345,8 @@ void *Service_2(void *threadp)
         S2Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "S2: release %llu @ sec=%lf\n", S2Cnt, current_time);
+
+        fib_result = fibonacci(20);
     }
 
     pthread_exit((void *)0);
@@ -349,9 +358,10 @@ void *Service_3(void *threadp)
     double current_time;
     unsigned long long S3Cnt=0;
     threadParams_t *threadParams = (threadParams_t *)threadp;
+    unsigned long fib_result1;
 
     current_time=getTimeMsec();
-    //syslog(LOG_CRIT, "S3: start on cpu=%d @ sec=%lf\n", sched_getcpu(), current_time);
+    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS3)
     {
@@ -359,7 +369,8 @@ void *Service_3(void *threadp)
         S3Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "S3: release %llu @ sec=%lf\n", S3Cnt, current_time);
+
+        fib_result1 = fibonacci(20);
     }
 
     pthread_exit((void *)0);
