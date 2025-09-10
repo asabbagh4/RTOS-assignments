@@ -52,6 +52,7 @@
 #include <errno.h>
 #include "seqgen.h"
 #include <sys/sysinfo.h>
+#include <string.h>
 
 #define ABS_DELAY
 #define DRIFT_CONTROL
@@ -93,10 +94,29 @@ void main(void)
     printf("Starting High Rate Sequencer Example\n");
     get_cpu_core_config();
 
+    //Print output of "uname -a"
+    FILE *uname;
+    char uname_buffer[256];
+
+    //save output into a file and handle error
+    uname = popen("uname -a", "r");
+    if (uname == NULL) syslog(LOG_ERR, "Failed to execute uname -a command");
+
+    //read the output into a buffer to be logged
+
+    if (fgets(uname_buffer, sizeof(uname_buffer), uname) != NULL)
+    {
+        uname_buffer[strcspn(uname_buffer, "\n")] = 0;
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: %s", uname_buffer);
+    }
+    pclose(uname);
+
+
+
     clock_getres(CLOCK_REALTIME, &rt_res);
     printf("RT clock resolution is %d sec, %d nsec\n", rt_res.tv_sec, rt_res.tv_nsec);
 
-   printf("System has %d processors configured and %d available.\n", get_nprocs_conf(), get_nprocs());
+    printf("System has %d processors configured and %d available.\n", get_nprocs_conf(), get_nprocs());
 
     // initialize the sequencer semaphores
     //
@@ -313,7 +333,7 @@ void *Service_1(void *threadp)
     unsigned long fib_result;
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS1)
     {
@@ -337,7 +357,7 @@ void *Service_2(void *threadp)
     unsigned long fib_result;
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS2)
     {
@@ -361,7 +381,7 @@ void *Service_3(void *threadp)
     unsigned long fib_result1;
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS3)
     {
@@ -371,6 +391,7 @@ void *Service_3(void *threadp)
         current_time=getTimeMsec();
 
         fib_result1 = fibonacci(20);
+        fib_result1 = fibonacci(21);
     }
 
     pthread_exit((void *)0);
@@ -448,5 +469,6 @@ void get_cpu_core_config(void)
    }
 
    printf("Using CPUS=%d from total available.\n", CPU_COUNT(&cpuset));
+
 }
 
