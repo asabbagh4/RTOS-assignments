@@ -116,7 +116,7 @@ void main(void)
     clock_getres(CLOCK_REALTIME, &rt_res);
     printf("RT clock resolution is %d sec, %d nsec\n", rt_res.tv_sec, rt_res.tv_nsec);
 
-    printf("System has %d processors configured and %d available.\n", get_nprocs_conf(), get_nprocs());
+   printf("System has %d processors configured and %d available.\n", get_nprocs_conf(), get_nprocs());
 
     // initialize the sequencer semaphores
     //
@@ -333,7 +333,6 @@ void *Service_1(void *threadp)
     unsigned long fib_result;
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS1)
     {
@@ -341,7 +340,7 @@ void *Service_1(void *threadp)
         S1Cnt++;
 
         current_time=getTimeMsec();
-        
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
     }
 
@@ -357,7 +356,6 @@ void *Service_2(void *threadp)
     unsigned long fib_result;
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS2)
     {
@@ -365,7 +363,7 @@ void *Service_2(void *threadp)
         S2Cnt++;
 
         current_time=getTimeMsec();
-
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
     }
 
@@ -389,9 +387,8 @@ void *Service_3(void *threadp)
         S3Cnt++;
 
         current_time=getTimeMsec();
-
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result1 = fibonacci(20);
-        fib_result1 = fibonacci(21);
     }
 
     pthread_exit((void *)0);
@@ -469,6 +466,5 @@ void get_cpu_core_config(void)
    }
 
    printf("Using CPUS=%d from total available.\n", CPU_COUNT(&cpuset));
-
 }
 
