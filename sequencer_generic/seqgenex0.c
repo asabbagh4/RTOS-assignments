@@ -379,7 +379,6 @@ void *Service_3(void *threadp)
     unsigned long fib_result1;
 
     current_time=getTimeMsec();
-    syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
 
     while(!abortS3)
     {
