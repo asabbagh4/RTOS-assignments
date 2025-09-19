@@ -61,15 +61,15 @@
 #define ABS_DELAY
 #define DRIFT_CONTROL
 
-// number of threads, 3 services and 1 sequencer
-#define NUM_THREADS (3+1)
+// number of threads, 4 services and 1 sequencer
+#define NUM_THREADS (4+1)
 
 //shared flags to stop loops
 int abortTest=FALSE;
-int abortS1=FALSE, abortS2=FALSE, abortS3=FALSE;
+int abortS1=FALSE, abortS2=FALSE, abortS3=FALSE, abortS4=FALSE;
 
 //semaphores used to release services
-sem_t semS1, semS2, semS3;
+sem_t semS1, semS2, semS3, semS4;
 
 //baseline time to subtracted from time readings
 static double start_time = 0;
@@ -121,7 +121,7 @@ int main(void)
     if (fgets(uname_buffer, sizeof(uname_buffer), uname) != NULL)
     {
         uname_buffer[strcspn(uname_buffer, "\n")] = 0;
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: %s", uname_buffer);
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: %s", uname_buffer);
     }
     pclose(uname);
 
@@ -140,6 +140,8 @@ int main(void)
     if (sem_init (&semS2, 0, 0)) 
         { printf ("Failed to initialize S2 semaphore\n"); exit (-1); }
     if (sem_init (&semS3, 0, 0)) 
+        { printf ("Failed to initialize S3 semaphore\n"); exit (-1); }
+    if (sem_init (&semS4, 0, 0)) 
         { printf ("Failed to initialize S3 semaphore\n"); exit (-1); }
 
     //get the process id for the main thread
@@ -222,13 +224,23 @@ int main(void)
         printf("pthread_create successful for service 2\n");
 
 
-    // Service_3 = RT_MAX-3	@ 6.67 Hz
+    // Service_3 = RT_MAX-3	@ 10 Hz
     //
     rt_param[3].sched_priority=rt_max_prio-3;
     pthread_attr_setschedparam(&rt_sched_attr[3], &rt_param[3]);
     rc=pthread_create(&threads[3], &rt_sched_attr[3], Service_3, (void *)&(threadParams[3]));
     if(rc < 0)
         perror("pthread_create for service 3");
+    else
+        printf("pthread_create successful for service 3\n");
+
+    // Service_4 = RT_MAX-4	@ 5 Hz
+    //  
+    rt_param[4].sched_priority=rt_max_prio-4;
+    pthread_attr_setschedparam(&rt_sched_attr[4], &rt_param[4]);
+    rc=pthread_create(&threads[4], &rt_sched_attr[4], Service_4, (void *)&(threadParams[4]));
+    if(rc < 0)
+        perror("pthread_create for service 4");
     else
         printf("pthread_create successful for service 3\n");
 
@@ -351,7 +363,8 @@ void *Sequencer(void *threadp)
         we release semaphores at the specific intervals based on seqCnt that starts from zero
         every 2 cycles, we'll release semS1, achieving (100/2)Hz = 50Hz
         every 5 cycles, we'll release semS2, achieving (100/5) Hz = 20 Hz
-        every 15 cycles, we'll release semS3, achieving (100/15) Hz = 6.67 Hz
+        every 10 cycles, we'll release semS3, achieving (100/15) Hz = 10 Hz
+        every 20 cycles, we'll release semS4, achieving (100/20) Hz = 5 Hz
         */
         // Servcie_1 = RT_MAX-1	@ 50 Hz
 
@@ -360,8 +373,11 @@ void *Sequencer(void *threadp)
         // Service_2 = RT_MAX-2	@ 20 Hz
         if((seqCnt % 5) == 0) sem_post(&semS2);
 
-        // Service_3 = RT_MAX-3	@ 6.67 Hz
-        if((seqCnt % 15) == 0) sem_post(&semS3);
+        // Service_3 = RT_MAX-3	@ 10 Hz
+        if((seqCnt % 10) == 0) sem_post(&semS3);
+
+        // Service_4 = RT_MAX-4	@ 5 Hz
+        if((seqCnt % 20) == 0) sem_post(&semS4);
 
         seqCnt++;
         last_time=current_time;
@@ -369,9 +385,9 @@ void *Sequencer(void *threadp)
     } while(!abortTest && (seqCnt < threadParams->sequencePeriods));
 
     //wake services one last time so they can observe flags
-    sem_post(&semS1); sem_post(&semS2); sem_post(&semS3);
+    sem_post(&semS1); sem_post(&semS2); sem_post(&semS3); sem_post(&semS4);
     //tell services to observe flags
-    abortS1=TRUE; abortS2=TRUE; abortS3=TRUE;
+    abortS1=TRUE; abortS2=TRUE; abortS3=TRUE; abortS4=TRUE;
 
     pthread_exit((void *)0);
 }
@@ -393,7 +409,7 @@ void *Service_1(void *threadp)
         S1Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
         (void)fib_result; // suppress unused variable warning
     }
@@ -417,7 +433,7 @@ void *Service_2(void *threadp)
         S2Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
         (void)fib_result; // suppress unused variable warning
     }
@@ -441,7 +457,30 @@ void *Service_3(void *threadp)
         S3Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        fib_result1 = fibonacci(20);
+        (void)fib_result1; // suppress unused variable warning
+    }
+
+    pthread_exit((void *)0);
+}
+
+void *Service_4(void *threadp)
+{
+    double current_time;
+    unsigned long long S4Cnt=0;
+    threadParams_t *threadParams = (threadParams_t *)threadp;
+    unsigned long fib_result1;
+
+    current_time=getTimeMsec();
+
+    while(!abortS3)
+    {
+        sem_wait(&semS4);
+        S4Cnt++;
+
+        current_time=getTimeMsec();
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result1 = fibonacci(20);
         (void)fib_result1; // suppress unused variable warning
     }
