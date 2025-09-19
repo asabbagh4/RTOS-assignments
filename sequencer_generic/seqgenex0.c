@@ -121,7 +121,7 @@ int main(void)
     if (fgets(uname_buffer, sizeof(uname_buffer), uname) != NULL)
     {
         uname_buffer[strcspn(uname_buffer, "\n")] = 0;
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: %s", uname_buffer);
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: %s", uname_buffer);
     }
     pclose(uname);
 
@@ -211,7 +211,7 @@ int main(void)
         printf("pthread_create successful for service 1\n");
 
 
-    // Service_2 = RT_MAX-2	@ 10 Hz
+    // Service_2 = RT_MAX-2	@ 20 Hz
     //
     rt_param[2].sched_priority=rt_max_prio-2;
     pthread_attr_setschedparam(&rt_sched_attr[2], &rt_param[2]);
@@ -350,15 +350,15 @@ void *Sequencer(void *threadp)
         we call sequencer 100 times per second (100 Hz), so to get desired frequencies of 50Hz, 10Hz, 6.67 Hz for services
         we release semaphores at the specific intervals based on seqCnt that starts from zero
         every 2 cycles, we'll release semS1, achieving (100/2)Hz = 50Hz
-        every 10 cycles, we'll release semS2, achieving (100/10) Hz = 10 Hz
+        every 5 cycles, we'll release semS2, achieving (100/5) Hz = 20 Hz
         every 15 cycles, we'll release semS3, achieving (100/15) Hz = 6.67 Hz
         */
         // Servcie_1 = RT_MAX-1	@ 50 Hz
 
         if((seqCnt % 2) == 0) sem_post(&semS1);
 
-        // Service_2 = RT_MAX-2	@ 10 Hz
-        if((seqCnt % 10) == 0) sem_post(&semS2);
+        // Service_2 = RT_MAX-2	@ 20 Hz
+        if((seqCnt % 5) == 0) sem_post(&semS2);
 
         // Service_3 = RT_MAX-3	@ 6.67 Hz
         if((seqCnt % 15) == 0) sem_post(&semS3);
@@ -393,7 +393,7 @@ void *Service_1(void *threadp)
         S1Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
         (void)fib_result; // suppress unused variable warning
     }
@@ -417,7 +417,7 @@ void *Service_2(void *threadp)
         S2Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
         (void)fib_result; // suppress unused variable warning
     }
@@ -441,7 +441,7 @@ void *Service_3(void *threadp)
         S3Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:2]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result1 = fibonacci(20);
         (void)fib_result1; // suppress unused variable warning
     }
