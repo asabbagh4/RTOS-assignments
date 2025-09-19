@@ -38,15 +38,18 @@
 // This is necessary for CPU affinity macros in Linux
 #define _GNU_SOURCE
 
+//standard libraries
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+//pthread and semaphore are used here
 #include <pthread.h>
 #include <sched.h>
 #include <time.h>
 #include <semaphore.h>
 
+//this is mainly to be able to get system information
 #include <syslog.h>
 #include <sys/time.h>
 #include <errno.h>
@@ -54,15 +57,24 @@
 #include <sys/sysinfo.h>
 #include <string.h>
 
+//compile time flags used in sequencer to select absolute sleeps and drift correction
 #define ABS_DELAY
 #define DRIFT_CONTROL
+
+// number of threads, 3 services and 1 sequencer
 #define NUM_THREADS (3+1)
 
+//shared flags to stop loops
 int abortTest=FALSE;
 int abortS1=FALSE, abortS2=FALSE, abortS3=FALSE;
+
+//semaphores used to release services
 sem_t semS1, semS2, semS3;
+
+//baseline time to subtracted from time readings
 static double start_time = 0;
 
+//threads, their attributes and metadata
 pthread_t threads[NUM_THREADS];
 pthread_attr_t rt_sched_attr[NUM_THREADS];
 pthread_attr_t main_attr;
@@ -70,6 +82,7 @@ int rt_max_prio, rt_min_prio;
 struct sched_param rt_param[NUM_THREADS];
 threadParams_t threadParams[NUM_THREADS];
 
+//fibonacci used in services to create fake workload
 unsigned long fibonacci(int n) {
     if (n <= 1) return n;
     return fibonacci(n - 1) + fibonacci(n - 2);
@@ -77,20 +90,21 @@ unsigned long fibonacci(int n) {
 
 
 
-void main(void)
+int main(void)
 {
-    double current_time;
-    struct timespec rt_res, monotonic_res;
+    struct timespec rt_res;
     int i, rc, cpuidx;
     cpu_set_t threadcpu;
     struct sched_param main_param;
     pid_t mainpid;
 
+    //capture baseline time
     start_time=getTimeMsec();
 
     // delay start for a second
     usleep(1000000);
 
+    //print information about system
     printf("Starting High Rate Sequencer Example\n");
     get_cpu_core_config();
 
@@ -112,11 +126,12 @@ void main(void)
     pclose(uname);
 
 
-
+    //get and print timing resolution
     clock_getres(CLOCK_REALTIME, &rt_res);
-    printf("RT clock resolution is %d sec, %d nsec\n", rt_res.tv_sec, rt_res.tv_nsec);
+    printf("RT clock resolution is %ld sec, %ld nsec\n", rt_res.tv_sec, rt_res.tv_nsec);
 
-   printf("System has %d processors configured and %d available.\n", get_nprocs_conf(), get_nprocs());
+    //print number of processors
+    printf("System has %d processors configured and %d available.\n", get_nprocs_conf(), get_nprocs());
 
     // initialize the sequencer semaphores
     //
@@ -127,42 +142,53 @@ void main(void)
     if (sem_init (&semS3, 0, 0)) 
         { printf ("Failed to initialize S3 semaphore\n"); exit (-1); }
 
+    //get the process id for the main thread
     mainpid=getpid();
 
+    //get the RT priority range
     rt_max_prio = sched_get_priority_max(SCHED_FIFO);
     rt_min_prio = sched_get_priority_min(SCHED_FIFO);
 
+    //get the main_param for the main thread
     rc=sched_getparam(mainpid, &main_param);
+    //assign the highest RT priority for the main thread
     main_param.sched_priority=rt_max_prio;
+    // set FIFO scheduler for the main thread
     rc=sched_setscheduler(getpid(), SCHED_FIFO, &main_param);
     if(rc < 0) perror("main_param");
 
+    //print current policy and attribute
     print_scheduler();
 
+    //print min and max priorities
     printf("rt_max_prio=%d\n", rt_max_prio);
     printf("rt_min_prio=%d\n", rt_min_prio);
 
+    //now we'll set attributes for all threads 
     for(i=0; i < NUM_THREADS; i++)
     {
-
+      //this is to clear the cpu set and init threadcpu to an empty state
       CPU_ZERO(&threadcpu);
+      //this index tells Linux to use CPU 3
       cpuidx=(3);
       CPU_SET(cpuidx, &threadcpu);
-
+      // init
       rc=pthread_attr_init(&rt_sched_attr[i]);
+      // use explicit scheduling attributes
       rc=pthread_attr_setinheritsched(&rt_sched_attr[i], PTHREAD_EXPLICIT_SCHED);
+      // use FIFO policy
       rc=pthread_attr_setschedpolicy(&rt_sched_attr[i], SCHED_FIFO);
+      // use this specific CPU. same CPU used for all threads
       rc=pthread_attr_setaffinity_np(&rt_sched_attr[i], sizeof(cpu_set_t), &threadcpu);
-
+      // assign descending priorities by index. main=max, thread1=max-1, thread2=max-2... etc
       rt_param[i].sched_priority=rt_max_prio-i;
       pthread_attr_setschedparam(&rt_sched_attr[i], &rt_param[i]);
-
+      //thread threadIdx for use later in the code
       threadParams[i].threadIdx=i;
     }
    
     printf("Service threads will run on %d CPU cores\n", CPU_COUNT(&threadcpu));
 
-    current_time=getTimeMsec();
     //syslog(LOG_CRIT, "RTMAIN: on cpu=%d @ sec=%lf, elapsed=%lf\n", sched_getcpu(), start_time, current_time);
 
 
@@ -211,7 +237,7 @@ void main(void)
     printf("Start sequencer\n");
     threadParams[0].sequencePeriods=RTSEQ_PERIODS;
 
-    // Sequencer = RT_MAX	@ 1000 Hz
+    // Sequencer = RT_MAX	@ 100 Hz
     //
     rt_param[0].sched_priority=rt_max_prio;
     pthread_attr_setschedparam(&rt_sched_attr[0], &rt_param[0]);
@@ -231,19 +257,19 @@ void main(void)
 
 void *Sequencer(void *threadp)
 {
-    struct timespec delay_time = {0, RTSEQ_DELAY_NSEC};
+    //local timing variables
+    struct timespec delay_time = {0, RTSEQ_DELAY_NSEC}; //RTSEQ_DELAY_NSEC is the base period in nanoseconds
     struct timespec std_delay_time = {0, RTSEQ_DELAY_NSEC};
-    struct timespec current_time_val={0,0};
+    struct timespec current_time_val={0,0}; //time spec used when calculating absolute deadlines
 
-    struct timespec remaining_time;
-    double current_time, last_time, scaleDelay;
-    double delta_t=(RTSEQ_DELAY_NSEC/(double)NANOSEC_PER_SEC);
-    double scale_dt;
+    double current_time, last_time;
+    double delta_t=(RTSEQ_DELAY_NSEC/(double)NANOSEC_PER_SEC); //period
+    double scale_dt; //measured drift
     int rc, delay_cnt=0;
-    unsigned long long seqCnt=0;
-    threadParams_t *threadParams = (threadParams_t *)threadp;
+    unsigned long long seqCnt=0; // cycle counter
+    threadParams_t *threadParams = (threadParams_t *)threadp; //get params from passed argument
 
-    current_time=getTimeMsec(); last_time=current_time-delta_t;
+    current_time=getTimeMsec(); last_time=current_time-delta_t; //initalize current time and calculate to calculate last_time
 
     //syslog(LOG_CRIT, "RTSEQ: start on cpu=%d @ sec=%lf after %lf with dt=%lf\n", sched_getcpu(), current_time, last_time, delta_t);
 
@@ -252,15 +278,26 @@ void *Sequencer(void *threadp)
         current_time=getTimeMsec(); delay_cnt=0;
 
 #ifdef DRIFT_CONTROL
-        scale_dt = (current_time - last_time) - delta_t;
+        /*drift in timings happen because of:
+        1- interrupts
+        2- sleep/wake latency
+        3- signals (like EINTR)
+        4- other reasons (kernel overhead, timer resolution, etc...)
+        to mitigate it, we need to calculate the drift and adjust sequencing of services accordingly
+        */
+        scale_dt = (current_time - last_time) - delta_t; // calculate drift
+        //adjust delay time to account for drift
         delay_time.tv_nsec = std_delay_time.tv_nsec - (scale_dt * (NANOSEC_PER_SEC+DT_SCALING_UNCERTAINTY_NANOSEC))-CLOCK_BIAS_NANOSEC;
         //syslog(LOG_CRIT, "RTSEQ: scale dt=%lf @ sec=%lf after=%lf with dt=%lf\n", scale_dt, current_time, last_time, delta_t);
 #else
+        //no drift adjustment if DRIFT_CONTROL is not defined
         delay_time=std_delay_time; scale_dt=delta_t;
 #endif
 
-
+// ABS_DELAY is used to to caculate an absolute deadline instead of a relative one
+// it targets a specific timestamp instead of telling the processor how long to sleep again, reducing drift
 #ifdef ABS_DELAY
+        //use absolute delay instead of relative delay. this reduces drift
         clock_gettime(CLOCK_REALTIME, &current_time_val);
         delay_time.tv_sec = current_time_val.tv_sec;
         delay_time.tv_nsec = current_time_val.tv_nsec + delay_time.tv_nsec;
@@ -275,6 +312,11 @@ void *Sequencer(void *threadp)
 
 
         // Delay loop with check for early wake-up
+        /* code behavior in this loop:
+        - If clock_nanosleep returns 0 (success), all is good
+        - if clock_nanosleep returns EINTR, keep retrying and add to delay counter
+        - If clock_nanosleep returns < 0, it means failure
+        */ 
         do
         {
 #ifdef ABS_DELAY
@@ -303,7 +345,16 @@ void *Sequencer(void *threadp)
 
         // Release each service at a sub-rate of the generic sequencer rate
 
+        //base frequency is based on RTSEQ_DELAY_NSEC, which is now at a 100 Hz
+        /*
+        we call sequencer 100 times per second (100 Hz), so to get desired frequencies of 50Hz, 10Hz, 6.67 Hz for services
+        we release semaphores at the specific intervals based on seqCnt that starts from zero
+        every 2 cycles, we'll release semS1, achieving (100/2)Hz = 50Hz
+        every 10 cycles, we'll release semS2, achieving (100/10) Hz = 10 Hz
+        every 15 cycles, we'll release semS3, achieving (100/15) Hz = 6.67 Hz
+        */
         // Servcie_1 = RT_MAX-1	@ 50 Hz
+
         if((seqCnt % 2) == 0) sem_post(&semS1);
 
         // Service_2 = RT_MAX-2	@ 10 Hz
@@ -317,14 +368,16 @@ void *Sequencer(void *threadp)
 
     } while(!abortTest && (seqCnt < threadParams->sequencePeriods));
 
+    //wake services one last time so they can observe flags
     sem_post(&semS1); sem_post(&semS2); sem_post(&semS3);
+    //tell services to observe flags
     abortS1=TRUE; abortS2=TRUE; abortS3=TRUE;
 
     pthread_exit((void *)0);
 }
 
 
-
+//we have 3 service functions. they're all similar and have fibonacci workload
 void *Service_1(void *threadp)
 {
     double current_time;
@@ -333,7 +386,7 @@ void *Service_1(void *threadp)
     unsigned long fib_result;
 
     current_time=getTimeMsec();
-
+    //the service will keep on executing until the abort flag is set to true
     while(!abortS1)
     {
         sem_wait(&semS1);
@@ -342,6 +395,7 @@ void *Service_1(void *threadp)
         current_time=getTimeMsec();
         syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
+        (void)fib_result; // suppress unused variable warning
     }
 
     pthread_exit((void *)0);
@@ -365,6 +419,7 @@ void *Service_2(void *threadp)
         current_time=getTimeMsec();
         syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
+        (void)fib_result; // suppress unused variable warning
     }
 
     pthread_exit((void *)0);
@@ -388,6 +443,7 @@ void *Service_3(void *threadp)
         current_time=getTimeMsec();
         syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:1]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result1 = fibonacci(20);
+        (void)fib_result1; // suppress unused variable warning
     }
 
     pthread_exit((void *)0);
@@ -395,6 +451,8 @@ void *Service_3(void *threadp)
 
 
 // global start_time must be set on first call
+// start_time is set at beginning of main function
+//this function returns how much time had passed since start_time in seconds as a double
 double getTimeMsec(void)
 {
   struct timespec event_ts = {0, 0};
@@ -405,7 +463,7 @@ double getTimeMsec(void)
   return (event_time - start_time);
 }
 
-
+// print scheduler
 void print_scheduler(void)
 {
    int schedType, scope;
