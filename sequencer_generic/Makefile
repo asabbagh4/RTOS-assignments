@@ -16,9 +16,12 @@ all:	seqgenex0 seqgen seqgen2 clock_times
 
 clean:
 	-rm -f *.o *.d
-	-rm -f seqgenex0 seqgen seqgen2 clock_times
+	-rm -f seqgenex0 seqgen seqgen2 clock_times A4-seqgen2
 
 seqgenex0: seqgenex0.o
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $@.o -lpthread -lrt
+
+A4-seqgen2: A4-seqgen2.o
 	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $@.o -lpthread -lrt
 
 seqgen2: seqgen2.o
