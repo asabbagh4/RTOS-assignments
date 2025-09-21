@@ -7,7 +7,7 @@
 #define TRUE (1)
 #define FALSE (0)
 
-#define RTSEQ_PERIODS (20)
+#define RTSEQ_PERIODS (15)
 
 // increas this if you fall behind over time
 // default is 100 microseconds

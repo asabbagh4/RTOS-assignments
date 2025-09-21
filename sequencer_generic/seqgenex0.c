@@ -121,7 +121,7 @@ int main(void)
     if (fgets(uname_buffer, sizeof(uname_buffer), uname) != NULL)
     {
         uname_buffer[strcspn(uname_buffer, "\n")] = 0;
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: %s", uname_buffer);
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:6]: %s", uname_buffer);
     }
     pclose(uname);
 
@@ -374,10 +374,10 @@ void *Sequencer(void *threadp)
         if((seqCnt % 5) == 0) sem_post(&semS2);
 
         // Service_3 = RT_MAX-3	@ 10 Hz
-        if((seqCnt % 10) == 0) sem_post(&semS3);
+        if((seqCnt % 7) == 0) sem_post(&semS3);
 
         // Service_4 = RT_MAX-4	@ 5 Hz
-        if((seqCnt % 20) == 0) sem_post(&semS4);
+        if((seqCnt % 13) == 0) sem_post(&semS4);
 
         seqCnt++;
         last_time=current_time;
@@ -409,7 +409,7 @@ void *Service_1(void *threadp)
         S1Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:6]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
         (void)fib_result; // suppress unused variable warning
     }
@@ -433,7 +433,7 @@ void *Service_2(void *threadp)
         S2Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:6]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result = fibonacci(20);
         (void)fib_result; // suppress unused variable warning
     }
@@ -457,7 +457,7 @@ void *Service_3(void *threadp)
         S3Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:6]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result1 = fibonacci(20);
         (void)fib_result1; // suppress unused variable warning
     }
@@ -480,7 +480,7 @@ void *Service_4(void *threadp)
         S4Cnt++;
 
         current_time=getTimeMsec();
-        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:3]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
+        syslog(LOG_CRIT, "[COURSE:2][ASSIGNMENT:6]: Thread %d start X @ %lf on core %d\n", threadParams->threadIdx, current_time, sched_getcpu());
         fib_result1 = fibonacci(20);
         (void)fib_result1; // suppress unused variable warning
     }
